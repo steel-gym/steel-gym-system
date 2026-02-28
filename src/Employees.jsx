@@ -23,22 +23,21 @@ function Employees() {
   };
 
   const loadEmployees = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("employees")
       .select("*")
       .order("created_at", { ascending: false });
 
-    setEmployees(data || []);
+    if (!error) {
+      setEmployees(data || []);
+    }
   };
 
-  const isValidPhone = (number) => {
-    return /^\d{11}$/.test(number);
-  };
+  const isValidPhone = (number) => /^\d{11}$/.test(number);
 
   const handleSave = async () => {
     if (!name.trim()) return alert("اكتب اسم الموظف");
     if (!phone.trim()) return alert("اكتب رقم التليفون");
-
     if (!isValidPhone(phone))
       return alert("رقم التليفون لازم يكون 11 رقم");
 
@@ -49,22 +48,23 @@ function Employees() {
     if (exists) return alert("الرقم موجود بالفعل");
 
     if (editingId) {
-      if (currentEmail !== OWNER_EMAIL) {
+      if (currentEmail !== OWNER_EMAIL)
         return alert("غير مسموح لك بالتعديل");
-      }
 
-      await supabase
+      const { error } = await supabase
         .from("employees")
         .update({ full_name: name, phone })
         .eq("id", editingId);
 
-      await supabase.from("employee_logs").insert([
-        {
-          employee_id: editingId,
-          action: "update",
-          performed_by: currentEmail,
-        },
-      ]);
+      if (!error) {
+        await supabase.from("employee_logs").insert([
+          {
+            employee_id: editingId,
+            action: "update",
+            performed_by: currentEmail,
+          },
+        ]);
+      }
 
       setEditingId(null);
     } else {
@@ -73,10 +73,7 @@ function Employees() {
         .insert([{ full_name: name, phone }])
         .select();
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
+      if (error) return alert(error.message);
 
       await supabase.from("employee_logs").insert([
         {
@@ -93,42 +90,52 @@ function Employees() {
   };
 
   const handleDelete = async (id) => {
-    if (currentEmail !== OWNER_EMAIL) {
+    if (currentEmail !== OWNER_EMAIL)
       return alert("غير مسموح لك بالحذف");
-    }
 
     if (!window.confirm("متأكد من الحذف؟")) return;
 
-    await supabase.from("employees").delete().eq("id", id);
+    const { error } = await supabase
+      .from("employees")
+      .delete()
+      .eq("id", id);
 
-    await supabase.from("employee_logs").insert([
-      {
-        employee_id: id,
-        action: "delete",
-        performed_by: currentEmail,
-      },
-    ]);
+    if (!error) {
+      await supabase.from("employee_logs").insert([
+        {
+          employee_id: id,
+          action: "delete",
+          performed_by: currentEmail,
+        },
+      ]);
 
-    loadEmployees();
+      loadEmployees();
+    }
   };
 
   const handleEdit = (emp) => {
-    if (currentEmail !== OWNER_EMAIL) {
+    if (currentEmail !== OWNER_EMAIL)
       return alert("غير مسموح لك بالتعديل");
-    }
 
-    setName(emp.full_name);
-    setPhone(emp.phone);
+    setName(emp.full_name || "");
+    setPhone(emp.phone || "");
     setEditingId(emp.id);
   };
 
-  const filteredEmployees = employees.filter(
-    (emp) =>
+  // ✅ فلترة آمنة تمنع الشاشة البيضاء
+  const filteredEmployees = employees.filter((emp) => {
+    const nameMatch =
+      emp.full_name &&
       emp.full_name
         .toLowerCase()
-        .includes(search.toLowerCase()) ||
-      emp.phone.includes(search)
-  );
+        .includes(search.toLowerCase());
+
+    const phoneMatch =
+      emp.phone &&
+      emp.phone.includes(search);
+
+    return nameMatch || phoneMatch;
+  });
 
   return (
     <div className="p-10 text-white">
@@ -171,21 +178,25 @@ function Employees() {
             className="bg-white/10 p-4 rounded-lg flex justify-between items-center"
           >
             <div>
-              <div className="font-bold">{emp.full_name}</div>
+              <div className="font-bold">
+                {emp.full_name || "بدون اسم"}
+              </div>
               <div className="text-gray-300 text-sm">
-                {emp.phone}
+                {emp.phone || "لا يوجد رقم"}
               </div>
             </div>
 
             <div className="flex gap-3">
-              <a
-                href={`https://wa.me/2${emp.phone}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-green-400 hover:scale-110 transition"
-              >
-                <MessageCircle size={20} />
-              </a>
+              {emp.phone && (
+                <a
+                  href={`https://wa.me/2${emp.phone}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-green-400 hover:scale-110 transition"
+                >
+                  <MessageCircle size={20} />
+                </a>
+              )}
 
               {currentEmail === OWNER_EMAIL && (
                 <>
