@@ -80,6 +80,15 @@ function Reports() {
       )
   );
 
+  // ✅ نسبة حضور اليوم
+  const todayRate =
+    employees.length > 0
+      ? (
+          (attendedToday.length / employees.length) *
+          100
+        ).toFixed(1)
+      : 0;
+
   // =========================
   // الحساب الشهري
   // =========================
@@ -283,22 +292,31 @@ function Reports() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
               <Card title="عدد الموظفين" value={employees.length} />
               <Card title="الموجودين الآن" value={presentNow.length} />
-              <Card title="غياب اليوم" value={absentToday.length} />
-              <Card title="نسبة الحضور %" value={attendanceRate} />
+              <Card title="حضروا اليوم" value={attendedToday.length} />
+              <Card title="غايبين اليوم" value={absentToday.length} />
+            </div>
+
+            <div className="mb-6">
+              <Card title="نسبة الحضور اليوم %" value={todayRate} />
             </div>
 
             <Pie
               data={{
-                labels: ["حضور", "غياب"],
+                labels: [
+                  "حضروا اليوم",
+                  "الموجودين الآن",
+                  "غايبين اليوم",
+                ],
                 datasets: [
                   {
                     data: [
-                      totalPresentAllEmployees,
-                      totalWorkedDaysAllEmployees -
-                        totalPresentAllEmployees,
+                      attendedToday.length,
+                      presentNow.length,
+                      absentToday.length,
                     ],
                     backgroundColor: [
                       "#22c55e",
+                      "#eab308",
                       "#ef4444",
                     ],
                   },
@@ -330,112 +348,109 @@ function Reports() {
         );
 
       case "custom":
-  return (
-    <>
-      <h2 className="text-2xl mb-6 font-bold">
-        تقرير بفترة مخصصة
-      </h2>
+        return (
+          <>
+            <h2 className="text-2xl mb-6 font-bold">
+              تقرير بفترة مخصصة
+            </h2>
 
-      {/* الفلاتر */}
-      <div className="bg-white/10 p-6 rounded-2xl mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/10 p-6 rounded-2xl mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        <div>
-          <label className="block mb-2">من تاريخ</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="w-full p-2 rounded bg-black/40"
-          />
-        </div>
+              <div>
+                <label className="block mb-2">من تاريخ</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full p-2 rounded bg-black/40"
+                />
+              </div>
 
-        <div>
-          <label className="block mb-2">إلى تاريخ</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="w-full p-2 rounded bg-black/40"
-          />
-        </div>
+              <div>
+                <label className="block mb-2">إلى تاريخ</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full p-2 rounded bg-black/40"
+                />
+              </div>
 
-        <div>
-          <label className="block mb-2">اختر موظف</label>
-          <select
-            value={selectedEmployee}
-            onChange={(e) =>
-              setSelectedEmployee(e.target.value)
-            }
-            className="w-full p-2 rounded bg-black/40"
-          >
-            <option value="all">
-              كل الموظفين
-            </option>
-            {employees.map((emp) => (
-              <option
-                key={emp.id}
-                value={emp.id}
-              >
-                {emp.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div>
+                <label className="block mb-2">اختر موظف</label>
+                <select
+                  value={selectedEmployee}
+                  onChange={(e) =>
+                    setSelectedEmployee(e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-black/40"
+                >
+                  <option value="all">
+                    كل الموظفين
+                  </option>
+                  {employees.map((emp) => (
+                    <option
+                      key={emp.id}
+                      value={emp.id}
+                    >
+                      {emp.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      </div>
+            </div>
 
-      {/* جدول النتائج */}
-      <div className="bg-white/10 p-6 rounded-2xl mb-8">
-        <h3 className="text-xl mb-4 font-bold">
-          النتائج
-        </h3>
+            <div className="bg-white/10 p-6 rounded-2xl mb-8">
+              <h3 className="text-xl mb-4 font-bold">
+                النتائج
+              </h3>
 
-        <table className="w-full text-right">
-          <thead>
-            <tr className="border-b border-white/20">
-              <th className="pb-2">الموظف</th>
-              <th className="pb-2">أيام الحضور</th>
-              <th className="pb-2">أيام الغياب</th>
-              <th className="pb-2">نسبة الحضور %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customStats.map((emp, index) => (
-              <tr key={index} className="border-b border-white/10">
-                <td className="py-2">{emp.name}</td>
-                <td>{emp.present}</td>
-                <td>{emp.absent}</td>
-                <td>{emp.rate}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              <table className="w-full text-right">
+                <thead>
+                  <tr className="border-b border-white/20">
+                    <th className="pb-2">الموظف</th>
+                    <th className="pb-2">أيام الحضور</th>
+                    <th className="pb-2">أيام الغياب</th>
+                    <th className="pb-2">نسبة الحضور %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customStats.map((emp, index) => (
+                    <tr key={index} className="border-b border-white/10">
+                      <td className="py-2">{emp.name}</td>
+                      <td>{emp.present}</td>
+                      <td>{emp.absent}</td>
+                      <td>{emp.rate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-        {customStats.length === 0 && (
-          <p className="mt-4">لا يوجد بيانات</p>
-        )}
-      </div>
+              {customStats.length === 0 && (
+                <p className="mt-4">لا يوجد بيانات</p>
+              )}
+            </div>
 
-      {/* الرسم البياني */}
-      <Bar
-        data={{
-          labels: customStats.map((e) => e.name),
-          datasets: [
-            {
-              label: "الحضور",
-              data: customStats.map((e) => e.present),
-              backgroundColor: "#22c55e",
-            },
-            {
-              label: "الغياب",
-              data: customStats.map((e) => e.absent),
-              backgroundColor: "#ef4444",
-            },
-          ],
-        }}
-      />
-    </>
-  );
+            <Bar
+              data={{
+                labels: customStats.map((e) => e.name),
+                datasets: [
+                  {
+                    label: "الحضور",
+                    data: customStats.map((e) => e.present),
+                    backgroundColor: "#22c55e",
+                  },
+                  {
+                    label: "الغياب",
+                    data: customStats.map((e) => e.absent),
+                    backgroundColor: "#ef4444",
+                  },
+                ],
+              }}
+            />
+          </>
+        );
 
       case "salary":
         const totalSalaries = employees.reduce(
