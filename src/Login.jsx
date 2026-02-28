@@ -6,25 +6,23 @@ function Login({ setLoggedIn }) {
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
-    const { data } = await supabase
-      .from("admins")
-      .select("*")
-      .eq("email", email)
-      .eq("password", password)
-      .single();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (data) {
-      localStorage.setItem("admin", "true");
-      setLoggedIn(true);
-    } else {
+    if (error) {
       alert("بيانات الدخول غير صحيحة");
+      return;
     }
+
+    setLoggedIn(true);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="bg-white p-8 rounded-xl w-96">
-        <h2 className="text-xl font-bold mb-6">Admin Login</h2>
+        <h2 className="text-xl font-bold mb-6">Login</h2>
 
         <input
           className="w-full border p-2 mb-4"

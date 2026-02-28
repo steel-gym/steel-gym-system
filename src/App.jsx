@@ -81,7 +81,7 @@ function App() {
       return alert("تم تسجيل حضور اليوم بالفعل");
 
     loadStats();
-    alert("تم تسجيل الحضور");
+    alert("تم تسجيل الحضور بنجاح ✅");
   };
 
   const handleCheckOut = async () => {
@@ -97,7 +97,7 @@ function App() {
       .eq("work_date", today);
 
     if (!data || data.length === 0)
-      return alert("لم يسجل حضور اليوم");
+      return alert("لم يسجل حضور اليوم ❌");
 
     const record = data[0];
 
@@ -118,7 +118,7 @@ function App() {
       .eq("id", record.id);
 
     loadStats();
-    alert("تم تسجيل الانصراف");
+    alert("تم تسجيل الانصراف بنجاح ✅");
   };
 
   const loadStats = async () => {
