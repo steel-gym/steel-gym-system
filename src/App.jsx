@@ -264,12 +264,6 @@ function App() {
             <Link to="/employees" className="text-white">الموظفين</Link>
             <Link to="/reports" className="text-white">التقارير</Link>
 
-            <button
-              onClick={() => setDark(!dark)}
-              className="bg-black dark:bg-white dark:text-black text-white px-4 py-2 rounded-lg"
-            >
-              {dark ? "☀ Light" : "🌙 Dark"}
-            </button>
 
             <button
               onClick={logout}

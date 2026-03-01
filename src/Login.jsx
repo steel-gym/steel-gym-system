@@ -16,6 +16,9 @@ function Login({ setLoggedIn }) {
       return;
     }
 
+    // تخزين حالة تسجيل الدخول
+    localStorage.setItem("admin", "true");
+
     setLoggedIn(true);
   };
 
@@ -27,6 +30,7 @@ function Login({ setLoggedIn }) {
         <input
           className="w-full border p-2 mb-4"
           placeholder="Email"
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
@@ -34,6 +38,7 @@ function Login({ setLoggedIn }) {
           type="password"
           className="w-full border p-2 mb-4"
           placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 

@@ -32,6 +32,27 @@ function Reports() {
   const [toDate, setToDate] = useState(todayISO);
   const [selectedEmployee, setSelectedEmployee] = useState("all");
 
+  // ✅🔥 إضافة اختيار شهر
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+
+  const monthStart = new Date(selectedMonth + "-01");
+
+const monthEnd = new Date(
+  monthStart.getFullYear(),
+  monthStart.getMonth() + 1,
+  0
+);
+
+const now = new Date();
+
+const isCurrentMonth =
+  monthStart.getMonth() === now.getMonth() &&
+  monthStart.getFullYear() === now.getFullYear();
+
+const effectiveEndDate = isCurrentMonth ? now : monthEnd;
+
   useEffect(() => {
     loadData();
   }, []);
@@ -80,7 +101,6 @@ function Reports() {
       )
   );
 
-  // ✅ نسبة حضور اليوم
   const todayRate =
     employees.length > 0
       ? (
@@ -90,7 +110,7 @@ function Reports() {
       : 0;
 
   // =========================
-  // الحساب الشهري
+  // الحساب الشهري (معدل بالشهر المختار)
   // =========================
 
   let totalWorkedDaysAllEmployees = 0;
@@ -100,11 +120,9 @@ function Reports() {
     const joinDate = new Date(emp.created_at);
 
     const startDate =
-      joinDate > firstDayOfMonthDate
-        ? joinDate
-        : firstDayOfMonthDate;
+      joinDate > monthStart ? joinDate : monthStart;
 
-    if (startDate > today) {
+    if (startDate > effectiveEndDate) {
       return {
         name: emp.full_name,
         present: 0,
@@ -113,20 +131,20 @@ function Reports() {
       };
     }
 
-    const diffTime = today - startDate;
+    const diffTime = effectiveEndDate - startDate;
     const workedDays =
       Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    const empAttendance = attendance.filter(
-      (a) => {
-        const workDate = new Date(a.work_date);
-        return (
-          String(a.employee_id) === String(emp.id) &&
-          workDate >= startDate &&
-          workDate <= today
-        );
-      }
-    );
+    const startStr = startDate.toISOString().split("T")[0];
+const endStr = effectiveEndDate.toISOString().split("T")[0];
+
+const empAttendance = attendance.filter((a) => {
+  return (
+    String(a.employee_id) === String(emp.id) &&
+    a.work_date >= startStr &&
+    a.work_date <= endStr
+  );
+});
 
     const presentDays = empAttendance.length;
     const safeWorkedDays =
@@ -163,7 +181,7 @@ function Reports() {
     )[0];
 
   // =========================
-  // التقرير المخصص
+  // التقرير المخصص (بدون تغيير)
   // =========================
 
   const diffDays = (start, end) => {
@@ -478,14 +496,31 @@ function Reports() {
 
       case "top":
         return (
-          <Card
-            title="أفضل موظف هذا الشهر"
-            value={
-              topEmployee
-                ? `${topEmployee.name} (${topEmployee.present} يوم)`
-                : "لا يوجد بيانات"
-            }
-          />
+          <>
+            <div className="mb-6">
+              <label className="block mb-2 text-white">
+                اختر الشهر
+              </label>
+
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) =>
+                  setSelectedMonth(e.target.value)
+                }
+                className="p-2 rounded bg-black/40"
+              />
+            </div>
+
+            <Card
+              title="أفضل موظف في الشهر المختار"
+              value={
+                topEmployee && topEmployee.present > 0
+                  ? `${topEmployee.name} (${topEmployee.present} يوم)`
+                  : "لا يوجد بيانات"
+              }
+            />
+          </>
         );
 
       default:
