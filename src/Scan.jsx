@@ -73,18 +73,20 @@ function Scan() {
   }, []);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      fontSize: "24px",
-      fontWeight: "bold",
-      textAlign: "center"
-    }}>
-      {message}
-    </div>
-  );
+  <div style={{
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    fontSize: "26px",
+    fontWeight: "bold",
+    textAlign: "center",
+    backgroundColor: "#111",
+    color: "#ffffff"
+  }}>
+    {message}
+  </div>
+);
 }
 
 export default Scan;
