@@ -103,18 +103,25 @@ function Scan() {
           return;
         }
 
-        // 🔐 5️⃣ تحقق من الجهاز
-        if (employee.device_fingerprint) {
-          if (employee.device_fingerprint !== fingerprint) {
-            setMessage("❌ هذا الجهاز غير مسموح به");
-            return;
-          }
-        } else {
-          await supabase
-            .from("employees")
-            .update({ device_fingerprint: fingerprint })
-            .eq("id", employee.id);
-        }
+       // 🔐 تحقق من الجهاز
+if (employee.device_fingerprint) {
+  if (employee.device_fingerprint !== fingerprint) {
+    setMessage("❌ هذا الجهاز غير مسموح به");
+    return;
+  }
+} else {
+  // أول مرة → نحفظ بصمة الجهاز
+  const { error: updateError } = await supabase
+    .from("employees")
+    .update({ device_fingerprint: fingerprint })
+    .eq("id", employee.id);
+
+  if (updateError) {
+    console.error(updateError);
+    setMessage("❌ حدث خطأ أثناء حفظ الجهاز");
+    return;
+  }
+}
 
         // 🔎 6️⃣ تحقق حضور مفتوح
         const { data: existing } = await supabase
