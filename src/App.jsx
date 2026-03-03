@@ -63,65 +63,79 @@ function App() {
   };
 
   const handleCheckIn = async () => {
-    if (!selectedEmployee)
-      return alert("اختر موظف أولاً");
+  if (!selectedEmployee)
+    return alert("اختر موظف أولاً");
 
-    const today = getToday();
+  const today = new Date().toLocaleDateString("en-CA");
 
-    const { error } = await supabase
-      .from("attendance")
-      .insert([
-        {
-          employee_id: selectedEmployee,
-          check_in: new Date().toISOString(),
-          work_date: today,
-        },
-      ]);
+  // 1️⃣ نتأكد مفيش شيفت مفتوح
+  const { data: openShift } = await supabase
+    .from("attendance")
+    .select("*")
+    .eq("employee_id", selectedEmployee)
+    .is("check_out", null);
 
-    if (error)
-      return alert("تم تسجيل حضور اليوم بالفعل");
+  if (openShift && openShift.length > 0)
+    return alert("الموظف مسجل حضور ولم يسجل انصراف ❌");
 
-    loadStats();
-    alert("تم تسجيل الحضور بنجاح ✅");
-  };
+  // 2️⃣ نتأكد إنه مسجلش قبل كده النهارده
+  const { data: todayShift } = await supabase
+    .from("attendance")
+    .select("*")
+    .eq("employee_id", selectedEmployee)
+    .eq("work_date", today);
+
+  if (todayShift && todayShift.length > 0)
+    return alert("تم تسجيل حضور اليوم بالفعل ❌");
+
+  const { error } = await supabase
+    .from("attendance")
+    .insert([
+      {
+        employee_id: selectedEmployee,
+        check_in: new Date().toISOString(),
+        work_date: today,
+      },
+    ]);
+
+  if (error)
+    return alert("حدث خطأ أثناء التسجيل");
+
+  loadStats();
+  alert("تم تسجيل الحضور بنجاح ✅");
+};
 
   const handleCheckOut = async () => {
-    if (!selectedEmployee)
-      return alert("اختر موظف أولاً");
+  if (!selectedEmployee)
+    return alert("اختر موظف أولاً");
 
-    const today = getToday();
+  const { data } = await supabase
+    .from("attendance")
+    .select("*")
+    .eq("employee_id", selectedEmployee)
+    .is("check_out", null);
 
-    const { data } = await supabase
-      .from("attendance")
-      .select("*")
-      .eq("employee_id", selectedEmployee)
-      .eq("work_date", today);
+  if (!data || data.length === 0)
+    return alert("لا يوجد شيفت مفتوح ❌");
 
-    if (!data || data.length === 0)
-      return alert("لم يسجل حضور اليوم ❌");
+  const record = data[0];
 
-    const record = data[0];
+  const nowISO = new Date().toISOString();
+  const diff =
+    (new Date(nowISO) - new Date(record.check_in)) /
+    (1000 * 60 * 60);
 
-    if (record.check_out)
-      return alert("تم تسجيل الانصراف بالفعل");
+  await supabase
+    .from("attendance")
+    .update({
+      check_out: nowISO,
+      total_hours: diff.toFixed(2),
+    })
+    .eq("id", record.id);
 
-    const nowISO = new Date().toISOString();
-    const diff =
-      (new Date(nowISO) - new Date(record.check_in)) /
-      (1000 * 60 * 60);
-
-    await supabase
-      .from("attendance")
-      .update({
-        check_out: nowISO,
-        total_hours: diff.toFixed(2),
-      })
-      .eq("id", record.id);
-
-    loadStats();
-    alert("تم تسجيل الانصراف بنجاح ✅");
-  };
-
+  loadStats();
+  alert("تم تسجيل الانصراف بنجاح ✅");
+};
   const loadStats = async () => {
     const today = getToday();
 
@@ -241,7 +255,6 @@ function App() {
       <div className="px-10 mt-10 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-8">
         <StatCard title="عدد الموظفين" value={stats.totalEmployees} filter="employees" />
         <StatCard title="الموجودين الآن" value={stats.presentNow} filter="presentNow" />
-        <StatCard title="إجمالي ساعات اليوم" value={stats.totalHoursToday} filter="todayHours" />
         <StatCard title="غياب اليوم" value={stats.absentToday} filter="absentToday" />
         <StatCard title="حضور اليوم" value={stats.todayAttendance} filter="todayAttendance" />
         <StatCard title="نسبة الحضور %" value={stats.attendanceRate} filter="attendanceRate" />
