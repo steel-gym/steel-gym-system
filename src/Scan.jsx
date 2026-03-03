@@ -28,14 +28,12 @@ function Scan() {
           return;
         }
 
-        const today = new Date().toLocaleDateString("en-CA");
-
-        // 2️⃣ نشوف هل سجل قبل كده
+        // 2️⃣ نشوف هل فيه حضور مفتوح (check_out = null)
         const { data: existing, error: existError } = await supabase
           .from("attendance")
           .select("*")
           .eq("employee_id", employee.id)
-          .eq("work_date", today);
+          .is("check_out", null);
 
         if (existError) {
           console.error("Select Attendance Error:", existError);
@@ -43,7 +41,7 @@ function Scan() {
           return;
         }
 
-        // 3️⃣ تسجيل حضور
+        // 3️⃣ لو مفيش حضور مفتوح → تسجيل حضور
         if (!existing || existing.length === 0) {
           const { error: insertError } = await supabase
             .from("attendance")
@@ -51,7 +49,7 @@ function Scan() {
               {
                 employee_id: employee.id,
                 check_in: new Date().toISOString(),
-                work_date: today,
+                work_date: new Date().toISOString().split("T")[0],
               },
             ]);
 
@@ -62,34 +60,32 @@ function Scan() {
           }
 
           setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
-        } else {
+        } 
+        
+        // 4️⃣ لو فيه حضور مفتوح → تسجيل انصراف
+        else {
           const record = existing[0];
 
-          // 4️⃣ تسجيل انصراف
-          if (!record.check_out) {
-            const nowISO = new Date().toISOString();
-            const diff =
-              (new Date(nowISO) - new Date(record.check_in)) /
-              (1000 * 60 * 60);
+          const nowISO = new Date().toISOString();
+          const diff =
+            (new Date(nowISO) - new Date(record.check_in)) /
+            (1000 * 60 * 60);
 
-            const { error: updateError } = await supabase
-              .from("attendance")
-              .update({
-                check_out: nowISO,
-                total_hours: Number(diff.toFixed(2)),
-              })
-              .eq("id", record.id);
+          const { error: updateError } = await supabase
+            .from("attendance")
+            .update({
+              check_out: nowISO,
+              total_hours: Number(diff.toFixed(2)),
+            })
+            .eq("id", record.id);
 
-            if (updateError) {
-              console.error("Update Error:", updateError);
-              setMessage("حدث خطأ أثناء تسجيل الانصراف");
-              return;
-            }
-
-            setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
-          } else {
-            setMessage("تم تسجيل الحضور والانصراف اليوم بالفعل");
+          if (updateError) {
+            console.error("Update Error:", updateError);
+            setMessage("حدث خطأ أثناء تسجيل الانصراف");
+            return;
           }
+
+          setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
         }
       } catch (err) {
         console.error("Unexpected Error:", err);
