@@ -49,8 +49,6 @@ function App() {
     }
   }, [loggedIn]);
 
-  if (!loggedIn) return <Login setLoggedIn={setLoggedIn} />;
-
   const getToday = () =>
     new Date().toLocaleDateString("en-CA");
 
@@ -217,10 +215,7 @@ function App() {
               اختر موظف
             </option>
             {employees.map((emp) => (
-              <option
-                key={emp.id}
-                value={emp.id}
-              >
+              <option key={emp.id} value={emp.id}>
                 {emp.full_name}
               </option>
             ))}
@@ -261,27 +256,37 @@ function App() {
             🏋️ Steel Gym System
           </h1>
 
-          <div className="flex gap-6 items-center">
-            <Link to="/" className="text-white">الرئيسية</Link>
-            <Link to="/employees" className="text-white">الموظفين</Link>
-            <Link to="/reports" className="text-white">التقارير</Link>
+          {loggedIn && (
+            <div className="flex gap-6 items-center">
+              <Link to="/" className="text-white">الرئيسية</Link>
+              <Link to="/employees" className="text-white">الموظفين</Link>
+              <Link to="/reports" className="text-white">التقارير</Link>
 
-
-            <button
-              onClick={logout}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg"
-            >
-              خروج
-            </button>
-          </div>
+              <button
+                onClick={logout}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg"
+              >
+                خروج
+              </button>
+            </div>
+          )}
         </div>
 
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/employees" element={<Employees />} />
-          <Route path="/reports" element={<Reports />} />
+          {/* صفحات عامة */}
           <Route path="/scan" element={<Scan />} />
           <Route path="/liveqr" element={<LiveQR />} />
+
+          {/* الصفحات المحمية */}
+          {!loggedIn ? (
+            <Route path="*" element={<Login setLoggedIn={setLoggedIn} />} />
+          ) : (
+            <>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/employees" element={<Employees />} />
+              <Route path="/reports" element={<Reports />} />
+            </>
+          )}
         </Routes>
       </div>
     </div>
