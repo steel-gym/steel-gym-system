@@ -12,10 +12,17 @@ function Scan() {
     const handleScan = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const employeeCode = params.get("code");
+        let employeeCode = params.get("code");
         const ts = params.get("ts");
 
         if (!employeeCode || !ts) {
+          setMessage("رابط غير صالح");
+          return;
+        }
+
+        employeeCode = Number(employeeCode.trim());
+
+        if (!employeeCode) {
           setMessage("رابط غير صالح");
           return;
         }
@@ -29,16 +36,31 @@ function Scan() {
           return;
         }
 
-        // 🔐 2️⃣ تحقق من الموقع
+        // 🔐 2️⃣ تحقق من الموقع (إجبار طلب الموقع)
+        if (!navigator.geolocation) {
+          setMessage("❌ المتصفح لا يدعم تحديد الموقع");
+          return;
+        }
+
         const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            (error) => {
+              reject(error);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            }
+          );
         });
 
         const userLat = position.coords.latitude;
         const userLng = position.coords.longitude;
 
-        const gymLat = 30.851852;   // 👈 حط إحداثيات الجيم هنا
-        const gymLng = 31.453222;   // 👈 حط إحداثيات الجيم هنا
+        const gymLat = 30.851852;   // 👈 إحداثيات الجيم
+        const gymLng = 31.453222;   // 👈 إحداثيات الجيم
 
         const getDistance = (lat1, lon1, lat2, lon2) => {
           const R = 6371;
@@ -46,11 +68,10 @@ function Scan() {
           const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
           const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.sin(dLat / 2) ** 2 +
             Math.cos((lat1 * Math.PI) / 180) *
               Math.cos((lat2 * Math.PI) / 180) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
+              Math.sin(dLon / 2) ** 2;
 
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           return R * c;
@@ -70,33 +91,32 @@ function Scan() {
           screen.height +
           Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        // 4️⃣ نجيب الموظف
-        const { data: employee } = await supabase
+        // 🔎 4️⃣ نجيب الموظف
+        const { data: employee, error: empError } = await supabase
           .from("employees")
           .select("*")
           .eq("employee_code", employeeCode)
           .single();
 
-        if (!employee) {
+        if (empError || !employee) {
           setMessage("الموظف غير موجود");
           return;
         }
 
-        // 5️⃣ تحقق من الجهاز
+        // 🔐 5️⃣ تحقق من الجهاز
         if (employee.device_fingerprint) {
           if (employee.device_fingerprint !== fingerprint) {
             setMessage("❌ هذا الجهاز غير مسموح به");
             return;
           }
         } else {
-          // أول مرة → نخزن بصمة الجهاز
           await supabase
             .from("employees")
             .update({ device_fingerprint: fingerprint })
             .eq("id", employee.id);
         }
 
-        // 6️⃣ تحقق حضور مفتوح
+        // 🔎 6️⃣ تحقق حضور مفتوح
         const { data: existing } = await supabase
           .from("attendance")
           .select("*")
@@ -132,6 +152,7 @@ function Scan() {
           setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
         }
       } catch (error) {
+        console.error(error);
         setMessage("❌ حدث خطأ في التحقق");
       }
     };
