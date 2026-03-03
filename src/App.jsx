@@ -6,6 +6,7 @@ import Reports from "./Reports";
 import CountUp from "react-countup";
 import Scan from "./Scan";
 import LiveQR from "./LiveQR";
+import EmployeeDetails from "./EmployeeDetails";
 import {
   BrowserRouter,
   Routes,
@@ -285,6 +286,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/employees" element={<Employees />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/employees/:id" element={<EmployeeDetails />} />
             </>
           )}
         </Routes>

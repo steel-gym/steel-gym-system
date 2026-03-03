@@ -32,26 +32,24 @@ function Reports() {
   const [toDate, setToDate] = useState(todayISO);
   const [selectedEmployee, setSelectedEmployee] = useState("all");
 
-  // ✅🔥 إضافة اختيار شهر
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
 
   const monthStart = new Date(selectedMonth + "-01");
+  const monthEnd = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth() + 1,
+    0
+  );
 
-const monthEnd = new Date(
-  monthStart.getFullYear(),
-  monthStart.getMonth() + 1,
-  0
-);
+  const now = new Date();
 
-const now = new Date();
+  const isCurrentMonth =
+    monthStart.getMonth() === now.getMonth() &&
+    monthStart.getFullYear() === now.getFullYear();
 
-const isCurrentMonth =
-  monthStart.getMonth() === now.getMonth() &&
-  monthStart.getFullYear() === now.getFullYear();
-
-const effectiveEndDate = isCurrentMonth ? now : monthEnd;
+  const effectiveEndDate = isCurrentMonth ? now : monthEnd;
 
   useEffect(() => {
     loadData();
@@ -73,12 +71,6 @@ const effectiveEndDate = isCurrentMonth ? now : monthEnd;
 
   const today = new Date();
   const todayStr = today.toLocaleDateString("en-CA");
-
-  const firstDayOfMonthDate = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    1
-  );
 
   const todayAttendance = attendance.filter(
     (a) => a.work_date === todayStr
@@ -110,7 +102,7 @@ const effectiveEndDate = isCurrentMonth ? now : monthEnd;
       : 0;
 
   // =========================
-  // الحساب الشهري (معدل بالشهر المختار)
+  // الحساب الشهري
   // =========================
 
   let totalWorkedDaysAllEmployees = 0;
@@ -118,7 +110,6 @@ const effectiveEndDate = isCurrentMonth ? now : monthEnd;
 
   const monthlyStats = employees.map((emp) => {
     const joinDate = new Date(emp.created_at);
-
     const startDate =
       joinDate > monthStart ? joinDate : monthStart;
 
@@ -136,15 +127,15 @@ const effectiveEndDate = isCurrentMonth ? now : monthEnd;
       Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
     const startStr = startDate.toISOString().split("T")[0];
-const endStr = effectiveEndDate.toISOString().split("T")[0];
+    const endStr = effectiveEndDate.toISOString().split("T")[0];
 
-const empAttendance = attendance.filter((a) => {
-  return (
-    String(a.employee_id) === String(emp.id) &&
-    a.work_date >= startStr &&
-    a.work_date <= endStr
-  );
-});
+    const empAttendance = attendance.filter((a) => {
+      return (
+        String(a.employee_id) === String(emp.id) &&
+        a.work_date >= startStr &&
+        a.work_date <= endStr
+      );
+    });
 
     const presentDays = empAttendance.length;
     const safeWorkedDays =
@@ -181,69 +172,64 @@ const empAttendance = attendance.filter((a) => {
     )[0];
 
   // =========================
-  // التقرير المخصص (بدون تغيير)
+  // تقرير ساعات موظف 🔥
   // =========================
 
-  const diffDays = (start, end) => {
-    const diff =
-      new Date(end) - new Date(start);
-    return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
-  };
+  const selectedEmpData =
+    selectedEmployee !== "all"
+      ? employees.find(
+          (e) => String(e.id) === String(selectedEmployee)
+        )
+      : null;
 
-  const filteredEmployees =
-    selectedEmployee === "all"
-      ? employees
-      : employees.filter(
-          (e) =>
-            String(e.id) === String(selectedEmployee)
-        );
+  const selectedEmpAttendance =
+    selectedEmployee !== "all"
+      ? attendance.filter(
+          (a) =>
+            String(a.employee_id) ===
+            String(selectedEmployee)
+        )
+      : [];
 
-  const customStats = filteredEmployees.map((emp) => {
-    const joinDate = new Date(emp.created_at);
+  const todayHours = selectedEmpAttendance
+    .filter((a) => a.work_date === todayStr)
+    .reduce((sum, a) => sum + Number(a.total_hours || 0), 0);
 
-    const rangeStart =
-      joinDate > new Date(fromDate)
-        ? joinDate
-        : new Date(fromDate);
+  const weekStart = new Date();
+  weekStart.setDate(
+    weekStart.getDate() - weekStart.getDay()
+  );
+  const weekStartStr =
+    weekStart.toISOString().split("T")[0];
 
-    if (rangeStart > new Date(toDate)) {
-      return {
-        name: emp.full_name,
-        present: 0,
-        absent: 0,
-        rate: 0,
-      };
-    }
+  const weekHours = selectedEmpAttendance
+    .filter((a) => a.work_date >= weekStartStr)
+    .reduce((sum, a) => sum + Number(a.total_hours || 0), 0);
 
-    const totalDays = diffDays(rangeStart, toDate);
-
-    const empAttendance = attendance.filter((a) => {
-      const workDate = new Date(a.work_date);
+  const monthHours = selectedEmpAttendance
+    .filter((a) => {
+      const d = new Date(a.work_date);
       return (
-        String(a.employee_id) === String(emp.id) &&
-        workDate >= rangeStart &&
-        workDate <= new Date(toDate)
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
       );
-    });
+    })
+    .reduce((sum, a) => sum + Number(a.total_hours || 0), 0);
 
-    const present = empAttendance.length;
-    const absent =
-      totalDays - present > 0
-        ? totalDays - present
-        : 0;
-
-    const rate =
-      totalDays > 0
-        ? ((present / totalDays) * 100).toFixed(1)
-        : 0;
-
-    return {
-      name: emp.full_name,
-      present,
-      absent,
-      rate,
-    };
-  });
+  const hoursChartData = {
+    labels: selectedEmpAttendance.map(
+      (a) => a.work_date
+    ),
+    datasets: [
+      {
+        label: "ساعات العمل",
+        data: selectedEmpAttendance.map(
+          (a) => a.total_hours || 0
+        ),
+        backgroundColor: "#3b82f6",
+      },
+    ],
+  };
 
   const menu = [
     { id: "overview", label: "📊 نظرة عامة" },
@@ -252,10 +238,69 @@ const empAttendance = attendance.filter((a) => {
     { id: "custom", label: "🗓 تقرير مخصص" },
     { id: "salary", label: "💰 الرواتب" },
     { id: "top", label: "🏆 أفضل موظف" },
+    { id: "employeeHours", label: "⏱ تقرير ساعات موظف" },
   ];
 
   const renderContent = () => {
     switch (activeTab) {
+
+      case "employeeHours":
+        return (
+          <>
+            <h2 className="text-2xl mb-6 font-bold">
+              تقرير ساعات موظف
+            </h2>
+
+            <div className="mb-6">
+              <label className="block mb-2">
+                اختر موظف
+              </label>
+
+              <select
+                value={selectedEmployee}
+                onChange={(e) =>
+                  setSelectedEmployee(e.target.value)
+                }
+                className="p-2 rounded bg-black/40"
+              >
+                <option value="all">
+                  اختر موظف
+                </option>
+                {employees.map((emp) => (
+                  <option
+                    key={emp.id}
+                    value={emp.id}
+                  >
+                    {emp.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedEmployee !== "all" && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <Card
+                    title="ساعات اليوم"
+                    value={todayHours.toFixed(2)}
+                  />
+                  <Card
+                    title="ساعات الأسبوع"
+                    value={weekHours.toFixed(2)}
+                  />
+                  <Card
+                    title="ساعات الشهر"
+                    value={monthHours.toFixed(2)}
+                  />
+                </div>
+
+                <Bar data={hoursChartData} />
+              </>
+            )}
+          </>
+        );
+
+      // باقي الحالات كما هي بدون أي حذف...
 
       case "today":
         return (
