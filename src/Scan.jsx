@@ -21,7 +21,6 @@ function Scan() {
         }
 
         employeeCode = Number(employeeCode.trim());
-
         if (!employeeCode) {
           setMessage("رابط غير صالح");
           return;
@@ -36,7 +35,7 @@ function Scan() {
           return;
         }
 
-        // 🔐 2️⃣ تحقق من الموقع (إجبار طلب الموقع)
+        // 🔐 2️⃣ تحقق من الموقع
         if (!navigator.geolocation) {
           setMessage("❌ المتصفح لا يدعم تحديد الموقع");
           return;
@@ -45,9 +44,7 @@ function Scan() {
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
             resolve,
-            (error) => {
-              reject(error);
-            },
+            reject,
             {
               enableHighAccuracy: true,
               timeout: 10000,
@@ -59,8 +56,8 @@ function Scan() {
         const userLat = position.coords.latitude;
         const userLng = position.coords.longitude;
 
-        const gymLat = 30.851852;   // 👈 إحداثيات الجيم
-        const gymLng = 31.453222;   // 👈 إحداثيات الجيم
+        const gymLat = 30.851852;
+        const gymLng = 31.453222;
 
         const getDistance = (lat1, lon1, lat2, lon2) => {
           const R = 6371;
@@ -84,12 +81,13 @@ function Scan() {
           return;
         }
 
-        // 🔐 3️⃣ بصمة الجهاز
-        const fingerprint =
-          navigator.userAgent +
-          screen.width +
-          screen.height +
-          Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // 🔐 3️⃣ بصمة جهاز ثابتة (أفضل من userAgent)
+        let fingerprint = localStorage.getItem("device_id");
+
+        if (!fingerprint) {
+          fingerprint = crypto.randomUUID();
+          localStorage.setItem("device_id", fingerprint);
+        }
 
         // 🔎 4️⃣ نجيب الموظف
         const { data: employee, error: empError } = await supabase
@@ -103,31 +101,33 @@ function Scan() {
           return;
         }
 
-       // 🔐 تحقق من الجهاز
-if (employee.device_fingerprint) {
-  if (employee.device_fingerprint !== fingerprint) {
-    setMessage("❌ هذا الجهاز غير مسموح به");
-    return;
-  }
-} else {
-  // أول مرة → نحفظ بصمة الجهاز
-  const { error: updateError } = await supabase
-    .from("employees")
-    .update({ device_fingerprint: fingerprint })
-    .eq("id", employee.id);
+        // 🔐 5️⃣ تحقق من الجهاز (قبل أي تسجيل)
+        if (employee.device_fingerprint) {
+          if (employee.device_fingerprint !== fingerprint) {
+            setMessage("❌ هذا الجهاز غير مسموح به");
+            return;
+          }
+        } else {
+          const { error: updateError } = await supabase
+            .from("employees")
+            .update({ device_fingerprint: fingerprint })
+            .eq("id", employee.id);
 
-  if (updateError) {
-    console.error(updateError);
-    setMessage("❌ حدث خطأ أثناء حفظ الجهاز");
-    return;
-  }
-}
+          if (updateError) {
+            console.error(updateError);
+            setMessage("❌ فشل حفظ الجهاز");
+            return;
+          }
+        }
 
-        // 🔎 6️⃣ تحقق حضور مفتوح
+        // 🔎 6️⃣ تحقق حضور اليوم فقط
+        const today = new Date().toISOString().split("T")[0];
+
         const { data: existing } = await supabase
           .from("attendance")
           .select("*")
           .eq("employee_id", employee.id)
+          .eq("work_date", today)
           .is("check_out", null);
 
         if (!existing || existing.length === 0) {
@@ -135,7 +135,7 @@ if (employee.device_fingerprint) {
             {
               employee_id: employee.id,
               check_in: new Date().toISOString(),
-              work_date: new Date().toISOString().split("T")[0],
+              work_date: today,
             },
           ]);
 
@@ -159,7 +159,7 @@ if (employee.device_fingerprint) {
           setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
         }
       } catch (error) {
-        console.error(error);
+        console.error("SCAN ERROR:", error);
         setMessage("❌ حدث خطأ في التحقق");
       }
     };
