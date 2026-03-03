@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "./supabase";
 
 function Scan() {
   const [message, setMessage] = useState("جارٍ التسجيل...");
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return; // يمنع التنفيذ مرتين
+    hasRun.current = true;
+
     const handleScan = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -15,7 +19,7 @@ function Scan() {
           return;
         }
 
-        // 1️⃣ نجيب الموظف
+        // 1️⃣ نجيب بيانات الموظف
         const { data: employee, error: empError } = await supabase
           .from("employees")
           .select("*")
@@ -28,7 +32,7 @@ function Scan() {
           return;
         }
 
-        // 2️⃣ نشوف هل فيه حضور مفتوح (check_out = null)
+        // 2️⃣ نبحث عن حضور مفتوح (check_out = null)
         const { data: existing, error: existError } = await supabase
           .from("attendance")
           .select("*")
@@ -36,8 +40,8 @@ function Scan() {
           .is("check_out", null);
 
         if (existError) {
-          console.error("Select Attendance Error:", existError);
-          setMessage("خطأ في قراءة بيانات الحضور");
+          console.error("Attendance Select Error:", existError);
+          setMessage("حدث خطأ أثناء قراءة بيانات الحضور");
           return;
         }
 
@@ -61,12 +65,11 @@ function Scan() {
 
           setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
         } 
-        
         // 4️⃣ لو فيه حضور مفتوح → تسجيل انصراف
         else {
           const record = existing[0];
-
           const nowISO = new Date().toISOString();
+
           const diff =
             (new Date(nowISO) - new Date(record.check_in)) /
             (1000 * 60 * 60);
@@ -87,8 +90,8 @@ function Scan() {
 
           setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
         }
-      } catch (err) {
-        console.error("Unexpected Error:", err);
+      } catch (error) {
+        console.error("Unexpected Error:", error);
         setMessage("حدث خطأ غير متوقع");
       }
     };
