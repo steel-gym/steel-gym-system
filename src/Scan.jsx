@@ -116,11 +116,76 @@ function Scan() {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const { data: todayRecords } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("employee_id", employee.id)
-        .eq("work_date", today);
+      // الحصول على سجل اليوم
+const { data: todayRecords } = await supabase
+  .from("attendance")
+  .select("*")
+  .eq("employee_id", employee.id)
+  .eq("work_date", today)
+  .order("check_in", { ascending: false });
+
+const openRecord = todayRecords.find(r => !r.check_out);
+
+// ==========================
+// تسجيل حضور
+// ==========================
+if (!openRecord && todayRecords.length === 0) {
+
+  await supabase.from("attendance").insert([
+    {
+      employee_id: employee.id,
+      check_in: new Date().toISOString(),
+      work_date: today,
+    },
+  ]);
+
+  setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
+  return;
+}
+
+// ==========================
+// تسجيل انصراف
+// ==========================
+if (openRecord) {
+
+  const nowISO = new Date().toISOString();
+
+  const minutes =
+    (new Date(nowISO) - new Date(openRecord.check_in)) /
+    (1000 * 60);
+
+  if (minutes < 10) {
+
+    setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق من تسجيل الحضور");
+    return;
+
+  }
+
+  const diff =
+    (new Date(nowISO) - new Date(openRecord.check_in)) /
+    (1000 * 60 * 60);
+
+  await supabase
+    .from("attendance")
+    .update({
+      check_out: nowISO,
+      total_hours: Number(diff.toFixed(2)),
+    })
+    .eq("id", openRecord.id);
+
+  setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
+  return;
+}
+
+// ==========================
+// بعد تسجيل الحضور والانصراف
+// ==========================
+if (!openRecord && todayRecords.length > 0) {
+
+  setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
+  return;
+
+}
 
       const openRecord = todayRecords.find(r => !r.check_out);
 
