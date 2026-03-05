@@ -230,6 +230,62 @@ function Reports() {
       },
     ],
   };
+  // ===== التقرير المخصص =====
+
+const diffDays = (start, end) => {
+  const diff = new Date(end) - new Date(start);
+  return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+};
+
+const filteredEmployees =
+  selectedEmployee === "all"
+    ? employees
+    : employees.filter(
+        (e) => String(e.id) === String(selectedEmployee)
+      );
+
+const customStats = filteredEmployees.map((emp) => {
+
+  const joinDate = new Date(emp.created_at);
+joinDate.setHours(0,0,0,0);
+
+const rangeStart =
+  joinDate > new Date(fromDate)
+    ? joinDate
+    : new Date(fromDate);
+
+const totalDays = diffDays(rangeStart, toDate);
+
+  const empAttendance = attendance.filter((a) => {
+
+    const workDate = new Date(a.work_date);
+
+    return (
+      String(a.employee_id) === String(emp.id) &&
+      workDate >= rangeStart &&
+      workDate <= new Date(toDate)
+    );
+  });
+
+  const present = empAttendance.length;
+
+  const absent =
+    totalDays - present > 0
+      ? totalDays - present
+      : 0;
+
+  const rate =
+    totalDays > 0
+      ? ((present / totalDays) * 100).toFixed(1)
+      : 0;
+
+  return {
+    name: emp.full_name,
+    present,
+    absent,
+    rate,
+  };
+});
 
   const menu = [
     { id: "overview", label: "📊 نظرة عامة" },
