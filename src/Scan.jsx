@@ -8,7 +8,6 @@ function Scan() {
   const [employeeCodeInput,setEmployeeCodeInput] = useState("");
 
   const hasRun = useRef(false);
-  const lastScan = useRef(0);
 
   useEffect(()=>{
 
@@ -40,26 +39,19 @@ function Scan() {
 
     try{
 
-      const now = Date.now();
-
-      if(now - lastScan.current < 3000){
-        setMessage("🚫 يرجى الانتظار قليلاً");
-        return;
-      }
-
-      lastScan.current = now;
-
       const fingerprint = getFingerprint();
 
-      const {data:knownEmployee,error} = await supabase
+      const {data:knownEmployee} = await supabase
       .from("employees")
       .select("*")
       .eq("device_fingerprint",fingerprint)
       .maybeSingle();
 
       if(knownEmployee){
+
         registerAttendance(knownEmployee);
         return;
+
       }
 
       setNeedLogin(true);
@@ -98,8 +90,9 @@ function Scan() {
       const getDistance = (lat1,lon1,lat2,lon2)=>{
 
         const R = 6371;
-        const dLat = (lat2-lat1)*Math.PI/180;
-        const dLon = (lon2-lon1)*Math.PI/180;
+
+        const dLat = (lat2-lat1) * Math.PI/180;
+        const dLon = (lon2-lon1) * Math.PI/180;
 
         const a =
         Math.sin(dLat/2)*Math.sin(dLat/2) +
@@ -122,7 +115,7 @@ function Scan() {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const { data:lastRecord } = await supabase
+      const {data:lastRecord} = await supabase
       .from("attendance")
       .select("*")
       .eq("employee_id",employee.id)
@@ -131,27 +124,33 @@ function Scan() {
       .limit(1)
       .maybeSingle();
 
+      // ===== تسجيل حضور =====
       if(!lastRecord){
 
-        const {error:insertError} = await supabase
+        const nowISO = new Date().toISOString();
+
+        const {error} = await supabase
         .from("attendance")
         .insert([{
           employee_id:employee.id,
-          check_in:new Date().toISOString(),
+          check_in:nowISO,
           work_date:today
         }]);
 
-        if(insertError){
-          console.error(insertError);
+        if(error){
+          console.error(error);
           setMessage("❌ فشل تسجيل الحضور");
           return;
         }
+
+        localStorage.setItem("last_checkin",nowISO);
 
         setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
         return;
 
       }
 
+      // ===== حضور بدون انصراف =====
       if(!lastRecord.check_out){
 
         const nowISO = new Date().toISOString();
@@ -161,8 +160,10 @@ function Scan() {
         (1000*60);
 
         if(minutes < 10){
+
           setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق");
           return;
+
         }
 
         const diff =
@@ -188,6 +189,7 @@ function Scan() {
 
       }
 
+      // ===== تم تسجيل اليوم =====
       setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
 
     }catch(error){
