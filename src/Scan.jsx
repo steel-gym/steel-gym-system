@@ -48,10 +48,8 @@ function Scan() {
       .maybeSingle();
 
       if(knownEmployee){
-
         registerAttendance(knownEmployee);
         return;
-
       }
 
       setNeedLogin(true);
@@ -91,8 +89,8 @@ function Scan() {
 
         const R = 6371;
 
-        const dLat = (lat2-lat1) * Math.PI/180;
-        const dLon = (lon2-lon1) * Math.PI/180;
+        const dLat = (lat2-lat1)*Math.PI/180;
+        const dLon = (lon2-lon1)*Math.PI/180;
 
         const a =
         Math.sin(dLat/2)*Math.sin(dLat/2) +
@@ -124,7 +122,7 @@ function Scan() {
       .limit(1)
       .maybeSingle();
 
-      // ===== تسجيل حضور =====
+      // تسجيل حضور
       if(!lastRecord){
 
         const nowISO = new Date().toISOString();
@@ -143,14 +141,12 @@ function Scan() {
           return;
         }
 
-        localStorage.setItem("last_checkin",nowISO);
-
         setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
         return;
 
       }
 
-      // ===== حضور بدون انصراف =====
+      // يوجد حضور بدون انصراف
       if(!lastRecord.check_out){
 
         const nowISO = new Date().toISOString();
@@ -161,7 +157,7 @@ function Scan() {
 
         if(minutes < 10){
 
-          setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق");
+          setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق من تسجيل الحضور");
           return;
 
         }
@@ -189,7 +185,7 @@ function Scan() {
 
       }
 
-      // ===== تم تسجيل اليوم =====
+      // تم تسجيل اليوم
       setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
 
     }catch(error){
