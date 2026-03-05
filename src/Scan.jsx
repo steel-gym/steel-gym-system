@@ -1,215 +1,157 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
 function Scan() {
 
-  const [message, setMessage] = useState("جارٍ التحقق...");
-  const [needLogin, setNeedLogin] = useState(false);
-  const [employeeCodeInput, setEmployeeCodeInput] = useState("");
+  const [message,setMessage] = useState("جارى التحقق...");
+  const [needCode,setNeedCode] = useState(false);
+  const [code,setCode] = useState("");
 
-  const hasRun = useRef(false);
+  useEffect(()=>{
+    checkDevice();
+  },[]);
 
-  useEffect(() => {
+  // توليد بصمة الجهاز
+  const getFingerprint = () => {
 
-    if (hasRun.current) return;
-    hasRun.current = true;
+    let deviceId = localStorage.getItem("device_id");
 
-    handleScan();
+    if(!deviceId){
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("device_id",deviceId);
+    }
 
-  }, []);
+    const ua = navigator.userAgent;
+    const screen = window.screen.width + "x" + window.screen.height;
 
-  const handleScan = async () => {
+    return deviceId + "_" + ua + "_" + screen;
 
-    try {
+  };
 
-      // 🔐 بصمة الجهاز
-      let deviceId = localStorage.getItem("device_id");
+  // فحص الجهاز
+  const checkDevice = async () => {
 
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem("device_id", deviceId);
-      }
+    const fingerprint = getFingerprint();
 
-      const userAgent = navigator.userAgent;
-      const screenSize = `${window.screen.width}x${window.screen.height}`;
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const {data} = await supabase
+      .from("employees")
+      .select("*")
+      .eq("device_fingerprint",fingerprint)
+      .single();
 
-      const fingerprint =
-        deviceId + "_" + userAgent + "_" + screenSize + "_" + timezone;
-
-      // 🔎 نبحث هل الجهاز معروف
-      const { data: knownEmployee } = await supabase
-        .from("employees")
-        .select("*")
-        .eq("device_fingerprint", fingerprint)
-        .single();
-
-      if (knownEmployee) {
-        registerAttendance(knownEmployee);
-        return;
-      }
-
-      // الجهاز جديد
-      setNeedLogin(true);
-
-    } catch (error) {
-
-      console.error(error);
-      setMessage("❌ حدث خطأ");
-
+    if(data){
+      registerAttendance(data);
+    }else{
+      setNeedCode(true);
+      setMessage("");
     }
 
   };
 
+  // تسجيل الجهاز أول مرة
+  const registerDevice = async () => {
+
+    const fingerprint = getFingerprint();
+
+    const {data:employee,error} = await supabase
+      .from("employees")
+      .select("*")
+      .eq("employee_code",code)
+      .single();
+
+    if(error || !employee){
+      alert("الكود غير صحيح");
+      return;
+    }
+
+    await supabase
+      .from("employees")
+      .update({device_fingerprint:fingerprint})
+      .eq("id",employee.id);
+
+    registerAttendance(employee);
+
+  };
+
+  // تسجيل حضور أو انصراف
   const registerAttendance = async (employee) => {
 
-    try {
+    const today = new Date().toISOString().split("T")[0];
 
-      // 🔐 GPS
-      if (!navigator.geolocation) {
-        setMessage("❌ المتصفح لا يدعم تحديد الموقع");
-        return;
-      }
+    const {data:existing} = await supabase
+      .from("attendance")
+      .select("*")
+      .eq("employee_id",employee.id)
+      .eq("work_date",today)
+      .is("check_out",null);
 
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          { enableHighAccuracy: true }
-        );
-      });
+    if(!existing || existing.length===0){
 
-      const userLat = position.coords.latitude;
-      const userLng = position.coords.longitude;
+      await supabase.from("attendance").insert([{
+        employee_id:employee.id,
+        check_in:new Date().toISOString(),
+        work_date:today
+      }]);
 
-      const gymLat = 30.851914;
-      const gymLng = 31.453270;
+      setMessage("✅ تم تسجيل حضور " + employee.full_name);
 
-      const getDistance = (lat1, lon1, lat2, lon2) => {
+    }else{
 
-        const R = 6371;
-        const dLat = ((lat2 - lat1) * Math.PI) / 180;
-        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const record = existing[0];
+      const now = new Date().toISOString();
 
-        const a =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLon / 2) ** 2;
-
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return R * c;
-
-      };
-
-      const distance = getDistance(userLat, userLng, gymLat, gymLng);
-
-      if (distance > 0.2) {
-        setMessage("❌ يجب أن تكون داخل الجيم");
-        return;
-      }
-
-      const today = new Date().toISOString().split("T")[0];
-
-      const { data: existing } = await supabase
-        .from("attendance")
-        .select("*")
-        .eq("employee_id", employee.id)
-        .eq("work_date", today)
-        .is("check_out", null);
-
-      if (!existing || existing.length === 0) {
-
-        await supabase.from("attendance").insert([
-          {
-            employee_id: employee.id,
-            check_in: new Date().toISOString(),
-            work_date: today,
-          },
-        ]);
-
-        setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
-
-      } else {
-
-        const record = existing[0];
-        const nowISO = new Date().toISOString();
-
-        const diff =
-          (new Date(nowISO) - new Date(record.check_in)) /
-          (1000 * 60 * 60);
-
-        await supabase
-          .from("attendance")
-          .update({
-            check_out: nowISO,
-            total_hours: Number(diff.toFixed(2)),
-          })
-          .eq("id", record.id);
-
-        setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
-
-      }
-
-    } catch (error) {
-
-      console.error(error);
-      setMessage("❌ حدث خطأ");
-
-    }
-
-  };
-
-  const firstLogin = async () => {
-
-    try {
-
-      const { data: employee } = await supabase
-        .from("employees")
-        .select("*")
-        .eq("employee_code", employeeCodeInput)
-        .single();
-
-      if (!employee) {
-        alert("الموظف غير موجود");
-        return;
-      }
-
-      const fingerprint = localStorage.getItem("device_id");
+      const diff = (new Date(now) - new Date(record.check_in)) / 3600000;
 
       await supabase
-        .from("employees")
-        .update({ device_fingerprint: fingerprint })
-        .eq("id", employee.id);
+      .from("attendance")
+      .update({
+        check_out:now,
+        total_hours:Number(diff.toFixed(2))
+      })
+      .eq("id",record.id);
 
-      registerAttendance(employee);
-
-    } catch (error) {
-
-      console.error(error);
+      setMessage("✅ تم تسجيل انصراف " + employee.full_name);
 
     }
 
   };
 
-  if (needLogin) {
+  // شاشة إدخال الكود أول مرة
+  if(needCode){
 
-    return (
+    return(
 
-      <div style={{ textAlign:"center", marginTop:"100px" }}>
+      <div style={{
+        minHeight:"100vh",
+        display:"flex",
+        justifyContent:"center",
+        alignItems:"center",
+        flexDirection:"column",
+        background:"#111",
+        color:"#fff"
+      }}>
 
         <h2>أدخل كود الموظف</h2>
 
         <input
-          value={employeeCodeInput}
-          onChange={(e)=>setEmployeeCodeInput(e.target.value)}
-          placeholder="كود الموظف"
+          value={code}
+          onChange={(e)=>setCode(e.target.value)}
+          style={{
+            padding:"10px",
+            fontSize:"18px",
+            marginTop:"10px"
+          }}
         />
 
-        <br/><br/>
-
-        <button onClick={firstLogin}>
+        <button
+          onClick={registerDevice}
+          style={{
+            marginTop:"20px",
+            padding:"10px 20px",
+            fontSize:"18px",
+            cursor:"pointer"
+          }}
+        >
           تسجيل الجهاز
         </button>
 
@@ -219,21 +161,19 @@ function Scan() {
 
   }
 
-  return (
+  // شاشة الرسالة
+  return(
 
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontSize: "24px",
-        fontWeight: "bold",
-        textAlign: "center",
-        backgroundColor: "#111",
-        color: "#fff",
-      }}
-    >
+    <div style={{
+      minHeight:"100vh",
+      display:"flex",
+      justifyContent:"center",
+      alignItems:"center",
+      background:"#111",
+      color:"#fff",
+      fontSize:"26px",
+      fontWeight:"bold"
+    }}>
       {message}
     </div>
 
