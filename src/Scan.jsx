@@ -51,7 +51,7 @@ function Scan() {
 
       const fingerprint = getFingerprint();
 
-      const {data:knownEmployee} = await supabase
+      const {data:knownEmployee,error} = await supabase
       .from("employees")
       .select("*")
       .eq("device_fingerprint",fingerprint)
@@ -116,86 +116,79 @@ function Scan() {
       const distance = getDistance(userLat,userLng,gymLat,gymLng);
 
       if(distance > 0.2){
-
         setMessage("❌ يجب أن تكون داخل الجيم");
         return;
-
       }
 
       const today = new Date().toISOString().split("T")[0];
 
-      // نجيب آخر سجل اليوم فقط
-const { data: lastRecord } = await supabase
-  .from("attendance")
-  .select("*")
-  .eq("employee_id", employee.id)
-  .eq("work_date", today)
-  .order("check_in", { ascending: false })
-  .limit(1)
-  .maybeSingle();
+      const { data:lastRecord } = await supabase
+      .from("attendance")
+      .select("*")
+      .eq("employee_id",employee.id)
+      .eq("work_date",today)
+      .order("check_in",{ascending:false})
+      .limit(1)
+      .maybeSingle();
 
+      if(!lastRecord){
 
-// ==========================
-// لا يوجد سجل اليوم → حضور
-// ==========================
-if (!lastRecord) {
+        const {error:insertError} = await supabase
+        .from("attendance")
+        .insert([{
+          employee_id:employee.id,
+          check_in:new Date().toISOString(),
+          work_date:today
+        }]);
 
-  await supabase.from("attendance").insert([
-    {
-      employee_id: employee.id,
-      check_in: new Date().toISOString(),
-      work_date: today
-    }
-  ]);
+        if(insertError){
+          console.error(insertError);
+          setMessage("❌ فشل تسجيل الحضور");
+          return;
+        }
 
-  setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
-  return;
-
-}
-
-
-// ==========================
-// يوجد حضور بدون انصراف
-// ==========================
-if (!lastRecord.check_out) {
-
-  const nowISO = new Date().toISOString();
-
-  const minutes =
-    (new Date(nowISO) - new Date(lastRecord.check_in)) /
-    (1000 * 60);
-
-  if (minutes < 10) {
-
-    setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق");
-    return;
-
-  }
-
-  const diff =
-    (new Date(nowISO) - new Date(lastRecord.check_in)) /
-    (1000 * 60 * 60);
-
-  await supabase
-    .from("attendance")
-    .update({
-      check_out: nowISO,
-      total_hours: Number(diff.toFixed(2))
-    })
-    .eq("id", lastRecord.id);
-
-  setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
-  return;
-
-}
-
-
-// ==========================
-// تم تسجيل حضور وانصراف
-// ==========================
-setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
+        setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
+        return;
 
       }
+
+      if(!lastRecord.check_out){
+
+        const nowISO = new Date().toISOString();
+
+        const minutes =
+        (new Date(nowISO) - new Date(lastRecord.check_in)) /
+        (1000*60);
+
+        if(minutes < 10){
+          setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق");
+          return;
+        }
+
+        const diff =
+        (new Date(nowISO) - new Date(lastRecord.check_in)) /
+        (1000*60*60);
+
+        const {error:updateError} = await supabase
+        .from("attendance")
+        .update({
+          check_out:nowISO,
+          total_hours:Number(diff.toFixed(2))
+        })
+        .eq("id",lastRecord.id);
+
+        if(updateError){
+          console.error(updateError);
+          setMessage("❌ فشل تسجيل الانصراف");
+          return;
+        }
+
+        setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
+        return;
+
+      }
+
+      setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
 
     }catch(error){
 
@@ -219,17 +212,13 @@ setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل
       .maybeSingle();
 
       if(!employee){
-
         alert("❌ كود الموظف غير صحيح");
         return;
-
       }
 
       if(employee.device_fingerprint){
-
         alert("❌ هذا الموظف مسجل على جهاز آخر");
         return;
-
       }
 
       await supabase
@@ -260,8 +249,7 @@ setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل
         alignItems:"center",
         flexDirection:"column",
         background:"#111",
-        color:"#fff",
-        fontSize:"20px"
+        color:"#fff"
       }}>
 
         <h2>أدخل كود الموظف</h2>
