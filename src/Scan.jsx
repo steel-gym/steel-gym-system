@@ -26,7 +26,7 @@ function Scan() {
           return;
         }
 
-        // 🔐 1️⃣ تحقق من صلاحية الوقت (60 ثانية)
+        // 🔐 1️⃣ تحقق من صلاحية الكود (60 ثانية)
         const now = Date.now();
         const diffTime = Math.abs(now - Number(ts));
 
@@ -81,15 +81,22 @@ function Scan() {
           return;
         }
 
-        // 🔐 3️⃣ بصمة جهاز ثابتة (أفضل من userAgent)
-        let fingerprint = localStorage.getItem("device_id");
+        // 🔐 3️⃣ إنشاء بصمة جهاز قوية
+        let deviceId = localStorage.getItem("device_id");
 
-        if (!fingerprint) {
-          fingerprint = crypto.randomUUID();
-          localStorage.setItem("device_id", fingerprint);
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem("device_id", deviceId);
         }
 
-        // 🔎 4️⃣ نجيب الموظف
+        const userAgent = navigator.userAgent;
+        const screenSize = `${window.screen.width}x${window.screen.height}`;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        const fingerprint =
+          deviceId + "_" + userAgent + "_" + screenSize + "_" + timezone;
+
+        // 🔎 4️⃣ جلب الموظف
         const { data: employee, error: empError } = await supabase
           .from("employees")
           .select("*")
@@ -101,7 +108,7 @@ function Scan() {
           return;
         }
 
-        // 🔐 5️⃣ تحقق من الجهاز (قبل أي تسجيل)
+        // 🔐 5️⃣ تحقق من الجهاز
         if (employee.device_fingerprint) {
           if (employee.device_fingerprint !== fingerprint) {
             setMessage("❌ هذا الجهاز غير مسموح به");
@@ -115,12 +122,12 @@ function Scan() {
 
           if (updateError) {
             console.error(updateError);
-            setMessage("❌ فشل حفظ الجهاز");
+            setMessage("❌ فشل تسجيل الجهاز لأول مرة");
             return;
           }
         }
 
-        // 🔎 6️⃣ تحقق حضور اليوم فقط
+        // 🔎 6️⃣ تحقق من حضور اليوم
         const today = new Date().toISOString().split("T")[0];
 
         const { data: existing } = await supabase
@@ -130,6 +137,7 @@ function Scan() {
           .eq("work_date", today)
           .is("check_out", null);
 
+        // ✅ تسجيل حضور
         if (!existing || existing.length === 0) {
           await supabase.from("attendance").insert([
             {
@@ -140,7 +148,9 @@ function Scan() {
           ]);
 
           setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
-        } else {
+        } 
+        // ✅ تسجيل انصراف
+        else {
           const record = existing[0];
           const nowISO = new Date().toISOString();
 
