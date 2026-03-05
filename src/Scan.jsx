@@ -122,7 +122,7 @@ function Scan() {
 
           if (updateError) {
             console.error(updateError);
-            setMessage("❌ فشل تسجيل الجهاز لأول مرة");
+            setMessage("❌ فشل تسجيل الجهاز لأول مرة لأن الجهاز مسجل من خلال موظف تاني");
             return;
           }
         }
