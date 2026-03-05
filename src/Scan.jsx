@@ -18,7 +18,6 @@ function Scan() {
 
   }, []);
 
-  // إنشاء بصمة الجهاز
   const getFingerprint = () => {
 
     let deviceId = localStorage.getItem("device_id");
@@ -42,8 +41,7 @@ function Scan() {
 
       const fingerprint = getFingerprint();
 
-      // هل الجهاز معروف؟
-      const { data: knownEmployee, error } = await supabase
+      const { data: knownEmployee } = await supabase
         .from("employees")
         .select("*")
         .eq("device_fingerprint", fingerprint)
@@ -56,7 +54,6 @@ function Scan() {
 
       }
 
-      // الجهاز غير مسجل
       setNeedLogin(true);
       setMessage("");
 
@@ -73,7 +70,6 @@ function Scan() {
 
     try {
 
-      // GPS
       if (!navigator.geolocation) {
         setMessage("❌ المتصفح لا يدعم تحديد الموقع");
         return;
@@ -120,15 +116,22 @@ function Scan() {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const { data: existing } = await supabase
+      const { data: todayRecords } = await supabase
         .from("attendance")
         .select("*")
         .eq("employee_id", employee.id)
-        .eq("work_date", today)
-        .is("check_out", null);
+        .eq("work_date", today);
 
-      // تسجيل حضور
-      if (!existing || existing.length === 0) {
+      const openRecord = todayRecords.find(r => !r.check_out);
+
+      if (!openRecord) {
+
+        if (todayRecords.length > 0) {
+
+          setMessage("🚫 تم تسجيل حضور وانصراف اليوم بالفعل");
+          return;
+
+        }
 
         await supabase.from("attendance").insert([
           {
@@ -142,14 +145,23 @@ function Scan() {
 
       }
 
-      // تسجيل انصراف
       else {
 
-        const record = existing[0];
         const nowISO = new Date().toISOString();
 
+        const minutes =
+          (new Date(nowISO) - new Date(openRecord.check_in)) /
+          (1000 * 60);
+
+        if (minutes < 10) {
+
+          setMessage("⏱ لا يمكن تسجيل الانصراف قبل مرور 10 دقائق من تسجيل الحضور");
+          return;
+
+        }
+
         const diff =
-          (new Date(nowISO) - new Date(record.check_in)) /
+          (new Date(nowISO) - new Date(openRecord.check_in)) /
           (1000 * 60 * 60);
 
         await supabase
@@ -158,7 +170,7 @@ function Scan() {
             check_out: nowISO,
             total_hours: Number(diff.toFixed(2)),
           })
-          .eq("id", record.id);
+          .eq("id", openRecord.id);
 
         setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
 
@@ -179,7 +191,7 @@ function Scan() {
 
       const fingerprint = getFingerprint();
 
-      const { data: employee, error } = await supabase
+      const { data: employee } = await supabase
         .from("employees")
         .select("*")
         .eq("employee_code", employeeCodeInput)
@@ -192,7 +204,6 @@ function Scan() {
 
       }
 
-      // لو الموظف مسجل جهاز قبل كده
       if (employee.device_fingerprint) {
 
         alert("❌ هذا الموظف مسجل على جهاز آخر");
@@ -243,7 +254,8 @@ function Scan() {
           style={{
             padding:"10px",
             fontSize:"18px",
-            marginTop:"10px"
+            marginTop:"10px",
+            color:"black"
           }}
         />
 
