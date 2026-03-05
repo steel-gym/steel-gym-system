@@ -124,11 +124,14 @@ function Scan() {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const {data:todayRecords} = await supabase
-      .from("attendance")
-      .select("*")
-      .eq("employee_id",employee.id)
-      .eq("work_date",today);
+      const { data: lastRecord } = await supabase
+  .from("attendance")
+  .select("*")
+  .eq("employee_id", employee.id)
+  .eq("work_date", today)
+  .order("check_in", { ascending: false })
+  .limit(1)
+  .maybeSingle();
 
       const openRecord = todayRecords.find(r => !r.check_out);
 
