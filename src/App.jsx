@@ -63,27 +63,31 @@ function App() {
   };
 
   const handleCheckIn = async () => {
+
   if (!selectedEmployee)
     return alert("اختر موظف أولاً");
 
-  const today = new Date().toLocaleDateString("en-CA");
-
-  // 1️⃣ نتأكد مفيش شيفت مفتوح
+  // منع شيفت مفتوح
   const { data: openShift } = await supabase
     .from("attendance")
     .select("*")
     .eq("employee_id", selectedEmployee)
-    .is("check_out", null);
+    .is("check_out", null)
+    .limit(1);
 
   if (openShift && openShift.length > 0)
     return alert("الموظف مسجل حضور ولم يسجل انصراف ❌");
 
-  // 2️⃣ نتأكد إنه مسجلش قبل كده النهارده
+  const now = new Date();
+
+  const workDate = now.toLocaleDateString("en-CA");
+
   const { data: todayShift } = await supabase
     .from("attendance")
     .select("*")
     .eq("employee_id", selectedEmployee)
-    .eq("work_date", today);
+    .eq("work_date", workDate)
+    .limit(1);
 
   if (todayShift && todayShift.length > 0)
     return alert("تم تسجيل حضور اليوم بالفعل ❌");
@@ -93,8 +97,8 @@ function App() {
     .insert([
       {
         employee_id: selectedEmployee,
-        check_in: new Date().toISOString(),
-        work_date: today,
+        check_in: now.toISOString(),
+        work_date: workDate
       },
     ]);
 
@@ -103,9 +107,11 @@ function App() {
 
   loadStats();
   alert("تم تسجيل الحضور بنجاح ✅");
+
 };
 
   const handleCheckOut = async () => {
+
   if (!selectedEmployee)
     return alert("اختر موظف أولاً");
 
@@ -113,7 +119,9 @@ function App() {
     .from("attendance")
     .select("*")
     .eq("employee_id", selectedEmployee)
-    .is("check_out", null);
+    .is("check_out", null)
+    .order("check_in", { ascending: false })
+    .limit(1);
 
   if (!data || data.length === 0)
     return alert("لا يوجد شيفت مفتوح ❌");
@@ -121,6 +129,7 @@ function App() {
   const record = data[0];
 
   const nowISO = new Date().toISOString();
+
   const diff =
     (new Date(nowISO) - new Date(record.check_in)) /
     (1000 * 60 * 60);
@@ -134,7 +143,9 @@ function App() {
     .eq("id", record.id);
 
   loadStats();
+
   alert("تم تسجيل الانصراف بنجاح ✅");
+
 };
   const loadStats = async () => {
     const today = getToday();
