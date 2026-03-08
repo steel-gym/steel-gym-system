@@ -223,17 +223,17 @@ function Scan() {
 
     <div
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontSize: "24px",
-        fontWeight: "bold",
-        textAlign: "center",
-        backgroundColor: "#111",
-        color: "#fff",
+        width:"100%",
+        padding:"12px",
+        borderRadius:"8px",
+        border:"1px solid #334155",
+        marginBottom:"15px",
+        fontSize:"16px",
+        background:"#ffffff",
+        color:"#000000",
+        outline:"none"
       }}
-    >
+   />
       {message}
     </div>
 
