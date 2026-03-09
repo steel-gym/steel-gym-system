@@ -287,7 +287,6 @@ function App() {
               <Link to="/" className="text-white">الرئيسية</Link>
               <Link to="/employees" className="text-white">الموظفين</Link>
               <Link to="/reports" className="text-white">التقارير</Link>
-              <Link to="/checkout" className="text-white">تسجيل الانصراف</Link>
 
               <button
                 onClick={logout}
