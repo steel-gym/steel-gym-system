@@ -7,7 +7,7 @@ function Scan() {
   const [needLogin, setNeedLogin] = useState(false);
   const [employeeCodeInput, setEmployeeCodeInput] = useState("");
 
-  const [loading,setLoading] = useState(false);
+  const [loading,setLoading] = useState(true);
   const [status,setStatus] = useState("normal");
 
   const hasRun = useRef(false);
@@ -55,18 +55,17 @@ function Scan() {
       if (knownEmployee) {
 
         await registerAttendance(knownEmployee);
-        setLoading(false);
         return;
 
       }
 
       setNeedLogin(true);
-      setMessage("");
       setLoading(false);
 
     } catch (error) {
 
       console.error(error);
+
       setStatus("error");
       setMessage("حدث خطأ أثناء التحقق");
       setLoading(false);
@@ -80,9 +79,12 @@ function Scan() {
     try {
 
       if (!navigator.geolocation) {
+
         setStatus("error");
         setMessage("المتصفح لا يدعم تحديد الموقع");
+        setLoading(false);
         return;
+
       }
 
       const position = await new Promise((resolve, reject) => {
@@ -92,12 +94,13 @@ function Scan() {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
 
-      const gymLat = 30.865391;
-      const gymLng = 31.460973;
+      const gymLat = 30.851914;
+      const gymLng = 31.453270;
 
       const getDistance = (lat1, lon1, lat2, lon2) => {
 
         const R = 6371;
+
         const dLat = ((lat2 - lat1) * Math.PI) / 180;
         const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
@@ -119,6 +122,7 @@ function Scan() {
 
         setStatus("error");
         setMessage("يجب أن تكون داخل الجيم");
+        setLoading(false);
         return;
 
       }
@@ -135,6 +139,7 @@ function Scan() {
 
         setStatus("normal");
         setMessage("تم تسجيل حضورك اليوم بالفعل");
+        setLoading(false);
         return;
 
       }
@@ -149,12 +154,15 @@ function Scan() {
 
       setStatus("success");
       setMessage("تم تسجيل الحضور بنجاح");
+      setLoading(false);
 
     } catch (error) {
 
       console.error(error);
+
       setStatus("error");
       setMessage("حدث خطأ أثناء التسجيل");
+      setLoading(false);
 
     }
 
@@ -225,16 +233,18 @@ function Scan() {
 
       setStatus("success");
       setMessage("تم تسجيل الجهاز بنجاح");
-
       setLoading(false);
 
       setTimeout(()=>{
+
         registerAttendance(employee);
+
       },1500);
 
     } catch (error) {
 
       console.error(error);
+
       setStatus("error");
       setMessage("حدث خطأ أثناء تسجيل الجهاز");
       setLoading(false);
@@ -275,7 +285,7 @@ function Scan() {
             fontSize:"18px",
             textAlign:"center",
             background:"#ffffff",
-            color:"#000000"
+            color:"#000"
           }}
         />
 
@@ -294,6 +304,24 @@ function Scan() {
         >
           تسجيل الجهاز
         </button>
+
+        {loading && (
+          <div style={{marginTop:"20px",fontSize:"20px"}}>
+            ⏳ جاري التسجيل...
+          </div>
+        )}
+
+        {!loading && status === "success" && (
+          <div style={{marginTop:"20px",color:"#22c55e",fontSize:"20px"}}>
+            ✔ {message}
+          </div>
+        )}
+
+        {!loading && status === "error" && (
+          <div style={{marginTop:"20px",color:"#ef4444",fontSize:"20px"}}>
+            ✖ {message}
+          </div>
+        )}
 
       </div>
 
