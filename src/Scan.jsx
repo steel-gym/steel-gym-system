@@ -192,7 +192,13 @@ function Scan() {
         })
         .eq("id", employee.id);
 
+         setMessage("✅ تم حفظ الجهاز بنجاح");
+
+         setTimeout(() => {
+
       registerAttendance(employee);
+
+}, 1000);
 
     } catch (error) {
 
