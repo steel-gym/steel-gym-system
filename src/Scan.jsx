@@ -18,39 +18,44 @@ function Scan() {
 
   }, []);
 
+  const getFingerprint = () => {
+
+    let deviceId = localStorage.getItem("device_id");
+
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("device_id", deviceId);
+    }
+
+    const userAgent = navigator.userAgent;
+    const screenSize = `${window.screen.width}x${window.screen.height}`;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    return deviceId + "_" + userAgent + "_" + screenSize + "_" + timezone;
+
+  };
+
   const handleScan = async () => {
 
     try {
 
-      // 🔐 بصمة الجهاز
-      let deviceId = localStorage.getItem("device_id");
+      const fingerprint = getFingerprint();
 
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem("device_id", deviceId);
-      }
-
-      const userAgent = navigator.userAgent;
-      const screenSize = `${window.screen.width}x${window.screen.height}`;
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      const fingerprint =
-        deviceId + "_" + userAgent + "_" + screenSize + "_" + timezone;
-
-      // 🔎 نبحث هل الجهاز معروف
       const { data: knownEmployee } = await supabase
         .from("employees")
         .select("*")
         .eq("device_fingerprint", fingerprint)
-        .single();
+        .maybeSingle();
 
       if (knownEmployee) {
+
         registerAttendance(knownEmployee);
         return;
+
       }
 
-      // الجهاز جديد
       setNeedLogin(true);
+      setMessage("");
 
     } catch (error) {
 
@@ -65,18 +70,13 @@ function Scan() {
 
     try {
 
-      // 🔐 GPS
       if (!navigator.geolocation) {
         setMessage("❌ المتصفح لا يدعم تحديد الموقع");
         return;
       }
 
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          { enableHighAccuracy: true }
-        );
+        navigator.geolocation.getCurrentPosition(resolve, reject);
       });
 
       const userLat = position.coords.latitude;
@@ -94,8 +94,8 @@ function Scan() {
         const a =
           Math.sin(dLat / 2) ** 2 +
           Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLon / 2) ** 2;
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) ** 2;
 
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -106,8 +106,10 @@ function Scan() {
       const distance = getDistance(userLat, userLng, gymLat, gymLng);
 
       if (distance > 0.2) {
+
         setMessage("❌ يجب أن تكون داخل الجيم");
         return;
+
       }
 
       const today = new Date().toISOString().split("T")[0];
@@ -125,37 +127,22 @@ function Scan() {
           {
             employee_id: employee.id,
             check_in: new Date().toISOString(),
-            work_date: today,
-          },
+            work_date: today
+          }
         ]);
 
         setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
 
       } else {
 
-        const record = existing[0];
-        const nowISO = new Date().toISOString();
-
-        const diff =
-          (new Date(nowISO) - new Date(record.check_in)) /
-          (1000 * 60 * 60);
-
-        await supabase
-          .from("attendance")
-          .update({
-            check_out: nowISO,
-            total_hours: Number(diff.toFixed(2)),
-          })
-          .eq("id", record.id);
-
-        setMessage(`✅ تم تسجيل انصراف ${employee.full_name}`);
+        setMessage("تم تسجيل حضورك بالفعل اليوم");
 
       }
 
     } catch (error) {
 
       console.error(error);
-      setMessage("❌ حدث خطأ");
+      setMessage("❌ حدث خطأ أثناء التسجيل");
 
     }
 
@@ -165,22 +152,33 @@ function Scan() {
 
     try {
 
+      const fingerprint = getFingerprint();
+
       const { data: employee } = await supabase
         .from("employees")
         .select("*")
         .eq("employee_code", employeeCodeInput)
-        .single();
+        .maybeSingle();
 
       if (!employee) {
-        alert("الموظف غير موجود");
+
+        alert("❌ كود الموظف غير صحيح");
         return;
+
       }
 
-      const fingerprint = localStorage.getItem("device_id");
+      if (employee.device_fingerprint) {
+
+        alert("❌ هذا الموظف مسجل على جهاز آخر");
+        return;
+
+      }
 
       await supabase
         .from("employees")
-        .update({ device_fingerprint: fingerprint })
+        .update({
+          device_fingerprint: fingerprint
+        })
         .eq("id", employee.id);
 
       registerAttendance(employee);
@@ -197,19 +195,51 @@ function Scan() {
 
     return (
 
-      <div style={{ textAlign:"center", marginTop:"100px" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          background: "#0f172a",
+          color: "#fff"
+        }}
+      >
 
-        <h2>أدخل كود الموظف</h2>
+        <h2 style={{marginBottom:"15px"}}>
+          أدخل كود الموظف
+        </h2>
 
         <input
           value={employeeCodeInput}
           onChange={(e)=>setEmployeeCodeInput(e.target.value)}
           placeholder="كود الموظف"
+          style={{
+            width:"260px",
+            padding:"12px",
+            borderRadius:"10px",
+            border:"1px solid #475569",
+            fontSize:"18px",
+            textAlign:"center",
+            background:"#fff",
+            color:"#000"
+          }}
         />
 
-        <br/><br/>
-
-        <button onClick={firstLogin}>
+        <button
+          onClick={firstLogin}
+          style={{
+            marginTop:"20px",
+            padding:"12px 30px",
+            fontSize:"18px",
+            borderRadius:"10px",
+            border:"none",
+            background:"#2563eb",
+            color:"#fff",
+            cursor:"pointer"
+          }}
+        >
           تسجيل الجهاز
         </button>
 
@@ -223,17 +253,17 @@ function Scan() {
 
     <div
       style={{
-        width:"100%",
-        padding:"12px",
-        borderRadius:"8px",
-        border:"1px solid #334155",
-        marginBottom:"15px",
-        fontSize:"16px",
-        background:"#2563eb"
-        color:"#000000",
-        outline:"none"
+        minHeight:"100vh",
+        display:"flex",
+        justifyContent:"center",
+        alignItems:"center",
+        background:"#0f172a",
+        color:"#fff",
+        fontSize:"26px",
+        fontWeight:"bold",
+        textAlign:"center"
       }}
-   />
+    >
       {message}
     </div>
 
