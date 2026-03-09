@@ -94,8 +94,8 @@ function Scan() {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
 
-      const gymLat = 30.865391;
-      const gymLng = 31.460973;
+      const gymLat = 30.884788;
+      const gymLng = 31.457687;
 
       const getDistance = (lat1, lon1, lat2, lon2) => {
 
