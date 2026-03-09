@@ -229,7 +229,7 @@ function Scan() {
         border:"1px solid #334155",
         marginBottom:"15px",
         fontSize:"16px",
-        background:"#ffffff",
+        background:"#2563eb"
         color:"#000000",
         outline:"none"
       }}
