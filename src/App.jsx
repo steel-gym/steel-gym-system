@@ -5,6 +5,7 @@ import Employees from "./Employees";
 import Reports from "./Reports";
 import CountUp from "react-countup";
 import Scan from "./Scan";
+import Checkout from "./Checkout";
 import LiveQR from "./LiveQR";
 import EmployeeDetails from "./EmployeeDetails";
 import {
@@ -67,7 +68,6 @@ function App() {
   if (!selectedEmployee)
     return alert("اختر موظف أولاً");
 
-  // منع شيفت مفتوح
   const { data: openShift } = await supabase
     .from("attendance")
     .select("*")
@@ -147,6 +147,7 @@ function App() {
   alert("تم تسجيل الانصراف بنجاح ✅");
 
 };
+
   const loadStats = async () => {
     const today = getToday();
 
@@ -286,6 +287,7 @@ function App() {
               <Link to="/" className="text-white">الرئيسية</Link>
               <Link to="/employees" className="text-white">الموظفين</Link>
               <Link to="/reports" className="text-white">التقارير</Link>
+              <Link to="/checkout" className="text-white">تسجيل الانصراف</Link>
 
               <button
                 onClick={logout}
@@ -300,9 +302,9 @@ function App() {
         <Routes>
           {/* صفحات عامة */}
           <Route path="/scan" element={<Scan />} />
+          <Route path="/checkout" element={<Checkout />} />
           <Route path="/liveqr" element={<LiveQR />} />
 
-          {/* الصفحات المحمية */}
           {!loggedIn ? (
             <Route path="*" element={<Login setLoggedIn={setLoggedIn} />} />
           ) : (
