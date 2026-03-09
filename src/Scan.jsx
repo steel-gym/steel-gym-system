@@ -7,6 +7,9 @@ function Scan() {
   const [needLogin, setNeedLogin] = useState(false);
   const [employeeCodeInput, setEmployeeCodeInput] = useState("");
 
+  const [loading,setLoading] = useState(false);
+  const [status,setStatus] = useState("normal");
+
   const hasRun = useRef(false);
 
   useEffect(() => {
@@ -39,6 +42,8 @@ function Scan() {
 
     try {
 
+      setLoading(true);
+
       const fingerprint = getFingerprint();
 
       const { data: knownEmployee } = await supabase
@@ -49,18 +54,22 @@ function Scan() {
 
       if (knownEmployee) {
 
-        registerAttendance(knownEmployee);
+        await registerAttendance(knownEmployee);
+        setLoading(false);
         return;
 
       }
 
       setNeedLogin(true);
       setMessage("");
+      setLoading(false);
 
     } catch (error) {
 
       console.error(error);
-      setMessage("❌ حدث خطأ");
+      setStatus("error");
+      setMessage("حدث خطأ أثناء التحقق");
+      setLoading(false);
 
     }
 
@@ -71,7 +80,8 @@ function Scan() {
     try {
 
       if (!navigator.geolocation) {
-        setMessage("❌ المتصفح لا يدعم تحديد الموقع");
+        setStatus("error");
+        setMessage("المتصفح لا يدعم تحديد الموقع");
         return;
       }
 
@@ -82,8 +92,8 @@ function Scan() {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
 
-      const gymLat = 30.865396;
-      const gymLng = 31.460973;
+      const gymLat = 30.851914;
+      const gymLng = 31.453270;
 
       const getDistance = (lat1, lon1, lat2, lon2) => {
 
@@ -107,7 +117,8 @@ function Scan() {
 
       if (distance > 0.2) {
 
-        setMessage("❌ يجب أن تكون داخل الجيم");
+        setStatus("error");
+        setMessage("يجب أن تكون داخل الجيم");
         return;
 
       }
@@ -122,6 +133,7 @@ function Scan() {
 
       if (todayAttendance && todayAttendance.length > 0) {
 
+        setStatus("normal");
         setMessage("تم تسجيل حضورك اليوم بالفعل");
         return;
 
@@ -135,12 +147,14 @@ function Scan() {
         }
       ]);
 
-      setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
+      setStatus("success");
+      setMessage("تم تسجيل الحضور بنجاح");
 
     } catch (error) {
 
       console.error(error);
-      setMessage("❌ حدث خطأ أثناء التسجيل");
+      setStatus("error");
+      setMessage("حدث خطأ أثناء التسجيل");
 
     }
 
@@ -149,6 +163,8 @@ function Scan() {
   const firstLogin = async () => {
 
     try {
+
+      setLoading(true);
 
       const fingerprint = getFingerprint();
 
@@ -160,14 +176,18 @@ function Scan() {
 
       if (!employee) {
 
-        alert("❌ كود الموظف غير صحيح");
+        setStatus("error");
+        setMessage("كود الموظف غير صحيح");
+        setLoading(false);
         return;
 
       }
 
       if (employee.device_fingerprint) {
 
-        alert("❌ هذا الموظف مسجل على جهاز آخر");
+        setStatus("error");
+        setMessage("هذا الموظف مسجل على جهاز آخر");
+        setLoading(false);
         return;
 
       }
@@ -180,29 +200,44 @@ function Scan() {
 
       if (deviceUsed) {
 
-        alert("❌ هذا الجهاز مسجل لموظف آخر");
+        setStatus("error");
+        setMessage("هذا الجهاز مسجل لموظف آخر");
+        setLoading(false);
         return;
 
       }
 
-      await supabase
+      const { error } = await supabase
         .from("employees")
         .update({
           device_fingerprint: fingerprint
         })
         .eq("id", employee.id);
 
-         setMessage("✅ تم حفظ الجهاز بنجاح");
+      if (error) {
 
-         setTimeout(() => {
+        setStatus("error");
+        setMessage("حدث خطأ أثناء تسجيل الجهاز");
+        setLoading(false);
+        return;
 
-      registerAttendance(employee);
+      }
 
-}, 1000);
+      setStatus("success");
+      setMessage("تم تسجيل الجهاز بنجاح");
+
+      setLoading(false);
+
+      setTimeout(()=>{
+        registerAttendance(employee);
+      },1500);
 
     } catch (error) {
 
       console.error(error);
+      setStatus("error");
+      setMessage("حدث خطأ أثناء تسجيل الجهاز");
+      setLoading(false);
 
     }
 
@@ -272,16 +307,45 @@ function Scan() {
       style={{
         minHeight:"100vh",
         display:"flex",
+        flexDirection:"column",
         justifyContent:"center",
         alignItems:"center",
         background:"#0f172a",
         color:"#fff",
-        fontSize:"26px",
-        fontWeight:"bold",
         textAlign:"center"
       }}
     >
-      {message}
+
+      {loading && (
+        <div style={{fontSize:"28px"}}>
+          ⏳ جاري التحقق...
+        </div>
+      )}
+
+      {!loading && status === "success" && (
+        <div style={{fontSize:"60px",color:"#22c55e"}}>
+          ✔
+          <div style={{fontSize:"22px",marginTop:"10px"}}>
+            {message}
+          </div>
+        </div>
+      )}
+
+      {!loading && status === "error" && (
+        <div style={{fontSize:"60px",color:"#ef4444"}}>
+          ✖
+          <div style={{fontSize:"22px",marginTop:"10px"}}>
+            {message}
+          </div>
+        </div>
+      )}
+
+      {!loading && status === "normal" && (
+        <div style={{fontSize:"22px"}}>
+          {message}
+        </div>
+      )}
+
     </div>
 
   );
