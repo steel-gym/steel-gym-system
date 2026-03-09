@@ -114,30 +114,28 @@ function Scan() {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const { data: existing } = await supabase
+      const { data: todayAttendance } = await supabase
         .from("attendance")
         .select("*")
         .eq("employee_id", employee.id)
-        .eq("work_date", today)
-        .is("check_out", null);
+        .eq("work_date", today);
 
-      if (!existing || existing.length === 0) {
+      if (todayAttendance && todayAttendance.length > 0) {
 
-        await supabase.from("attendance").insert([
-          {
-            employee_id: employee.id,
-            check_in: new Date().toISOString(),
-            work_date: today
-          }
-        ]);
-
-        setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
-
-      } else {
-
-        setMessage("تم تسجيل حضورك بالفعل اليوم");
+        setMessage("تم تسجيل حضورك اليوم بالفعل");
+        return;
 
       }
+
+      await supabase.from("attendance").insert([
+        {
+          employee_id: employee.id,
+          check_in: new Date().toISOString(),
+          work_date: today
+        }
+      ]);
+
+      setMessage(`✅ تم تسجيل حضور ${employee.full_name}`);
 
     } catch (error) {
 
@@ -174,6 +172,19 @@ function Scan() {
 
       }
 
+      const { data: deviceUsed } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("device_fingerprint", fingerprint)
+        .maybeSingle();
+
+      if (deviceUsed) {
+
+        alert("❌ هذا الجهاز مسجل لموظف آخر");
+        return;
+
+      }
+
       await supabase
         .from("employees")
         .update({
@@ -197,13 +208,13 @@ function Scan() {
 
       <div
         style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          background: "#0f172a",
-          color: "#fff"
+          minHeight:"100vh",
+          display:"flex",
+          justifyContent:"center",
+          alignItems:"center",
+          flexDirection:"column",
+          background:"#0f172a",
+          color:"#fff"
         }}
       >
 
@@ -222,8 +233,8 @@ function Scan() {
             border:"1px solid #475569",
             fontSize:"18px",
             textAlign:"center",
-            background:"#fff",
-            color:"#000"
+            background:"#ffffff",
+            color:"#000000"
           }}
         />
 
